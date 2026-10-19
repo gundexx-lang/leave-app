@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16324f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="연차관리">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>연차휴가 관리 시스템</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --cream: #fcf6e6;
+    --gold: #f0c560;
+    --orange: #f27b50;
+
+    --bg: #f2f5f9;
+    --panel: #ffffff;
+    --ink: #14263a;
+    --ink-soft: #6b7a8c;
+    --key: #ffffff;
+    --key-border: #d5dde7;
+    --key-shadow: 0 6px 14px rgba(22, 50, 79, .12);
+    --accent: var(--cream);
+    --accent-ink: #16324f;
+    --empty-border: #c3cdda;
+    --display-bg: #16324f;
+    --display-ink: #ffffff;
+    --track: #e4eaf1;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0e1620;
+      --panel: #16212e;
+      --ink: #e8eef5;
+      --ink-soft: #8fa0b3;
+      --key: #1b2a3a;
+      --key-border: #2b3d52;
+      --key-shadow: 0 6px 14px rgba(0, 0, 0, .4);
+      --empty-border: #33465c;
+      --display-bg: #0a2238;
+      --display-ink: #e8eef5;
+      --track: #263749;
+    }
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", system-ui, sans-serif;
+    display: flex;
+    justify-content: center;
+  }
+  .app {
+    width: 100%;
+    max-width: 440px;
+    min-height: 100%;
+    padding: max(20px, env(safe-area-inset-top)) 20px max(24px, env(safe-area-inset-bottom));
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .screen { display: flex; flex-direction: column; gap: 20px; flex: 1; }
+  .screen[hidden] { display: none; }
+
+  /* 상단: 날짜 / 타이틀 / D-day 원 */
+  .display {
+    background: var(--display-bg);
+    color: var(--display-ink);
+    border-radius: 22px;
+    padding: 18px 18px 18px 22px;
+    box-shadow: var(--key-shadow);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+  }
+  .display .text { min-width: 0; }
+  .display .date { font-size: 13px; opacity: .75; letter-spacing: .02em; }
+  .display h1 {
+    margin: 6px 0 0;
+    font-size: 20px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    line-height: 1.3;
+    word-break: keep-all;
+  }
+  .dday {
+    flex: none;
+    width: 94px;
+    height: 94px;
+    border-radius: 50%;
+    background: var(--cream);
+    border: 5px solid var(--gold);
+    color: #16324f;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+  }
+  .dday .n { font-size: 23px; font-weight: 800; letter-spacing: -.02em; line-height: 1; }
+  .dday .c { font-size: 10.5px; opacity: .75; }
+
+  /* 다이얼 패드 */
+  .pad {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    align-content: center;
+  }
+  .key {
+    position: relative;
+    aspect-ratio: 1 / 1;
+    border-radius: 50%;
+    border: 0;
+    background: var(--key);
+    color: var(--ink);
+    box-shadow: var(--key-shadow);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 3px;
+    font: inherit;
+    cursor: pointer;
+    padding: 0;
+    transition: transform .08s ease, background .15s ease, color .15s ease;
+  }
+  /* 테두리 링: 바탕 링 + 골드 호(사용 비율) */
+  .key .ring { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+  .ring circle { fill: none; stroke-width: 3; }
+  .ring-track { stroke: var(--key-border); }
+  .ring-arc { stroke: var(--gold); }
+
+  .key .label {
+    font-size: clamp(15px, 4.6vw, 19px);
+    font-weight: 700;
+    letter-spacing: -.02em;
+    text-align: center;
+    word-break: keep-all;
+    line-height: 1.15;
+  }
+  .key .val {
+    font-size: clamp(26px, 8vw, 34px);   /* 타이틀명보다 크게 */
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1;
+  }
+  .key .v {
+    font-size: clamp(30px, 9.5vw, 40px);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1;
+    color: var(--gold);
+  }
+  .key .v2 {
+    font-size: clamp(17px, 5vw, 21px);
+    font-weight: 800;
+    letter-spacing: -.02em;
+    line-height: 1;
+    color: var(--orange);
+  }
+  .key .date-y {
+    font-size: clamp(15px, 4.6vw, 19px);
+    font-weight: 700;
+    letter-spacing: -.01em;
+    line-height: 1;
+  }
+  .key .date-md {
+    font-size: clamp(22px, 6.6vw, 28px);
+    font-weight: 800;
+    letter-spacing: -.03em;
+    line-height: 1;
+    white-space: nowrap;
+  }
+  .key:active {
+    transform: scale(.94);
+    background: var(--accent);
+    color: var(--accent-ink);
+  }
+  .key:active .v, .key:active .v2 { color: var(--accent-ink); }
+  .key:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+  .key.empty {
+    background: transparent;
+    border: 1.5px dashed var(--empty-border);
+    box-shadow: none;
+    cursor: default;
+  }
+
+  /* 하위 화면 */
+  .topbar { display: flex; align-items: center; gap: 12px; }
+  .back {
+    flex: none;
+    width: 44px; height: 44px; border-radius: 50%;
+    border: 1.5px solid var(--key-border);
+    background: var(--key); color: var(--ink);
+    font-size: 20px; cursor: pointer;
+  }
+  .topbar h2 { margin: 0; font-size: 20px; word-break: keep-all; }
+  .topbar h2.gold { color: var(--gold); }
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--key-border);
+    border-radius: 20px;
+    padding: 22px;
+  }
+  .asof { font-size: 13px; color: var(--ink-soft); margin-bottom: 14px; }
+  .rows { margin: 0; }
+  .rows > div {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 14px 0;
+    border-bottom: 1px solid var(--key-border);
+  }
+  .rows > div:last-child { border-bottom: 0; }
+  .rows dt { color: var(--ink-soft); font-size: 15px; }
+  .rows dd { margin: 0; font-size: 22px; font-weight: 700; }
+  .rows dd small { font-size: 13px; font-weight: 500; color: var(--ink-soft); margin-left: 3px; }
+  .rows .sum dt { color: var(--ink); font-weight: 700; }
+  .rows .sum dd { font-size: 30px; }
+  .rows .sum.gold dd { color: var(--gold); }
+  .rows .sum2 { justify-content: flex-end; }
+  .rows .sum2 dd { color: var(--orange); font-size: 26px; }
+  .bar { height: 10px; border-radius: 99px; background: var(--track); overflow: hidden; margin: 6px 0 4px; }
+  .bar i { display: block; height: 100%; background: var(--gold); border-radius: 99px; }
+  .bar-cap { font-size: 12px; color: var(--ink-soft); }
+  .big-date { font-size: clamp(34px, 11vw, 44px); font-weight: 800; letter-spacing: -.02em; margin: 6px 0 4px; }
+  .sub { color: var(--ink-soft); font-size: 15px; }
+
+  /* 차감 / 저장 / 삭제 */
+  .actions {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .btn {
+    height: 52px;
+    border-radius: 14px;
+    border: 1.5px solid transparent;
+    font: inherit;
+    font-size: 16px;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+    transition: transform .08s ease, opacity .15s ease;
+  }
+  .btn:active:not(:disabled) { transform: scale(.96); }
+  .btn:disabled { opacity: .35; cursor: default; }
+  .btn.deduct { background: var(--gold); color: #16324f; }
+  .btn.save { background: var(--display-bg); color: var(--display-ink); }
+  .btn.del { background: transparent; color: var(--orange); border-color: var(--orange); }
+  .pending { margin-top: 10px; font-size: 13px; color: var(--orange); }
+  .notice { margin-top: 10px; font-size: 13px; color: var(--orange); }
+  .datebar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: 14px;
+    font-size: 14px;
+    color: var(--ink-soft);
+  }
+  .datebar input {
+    font: inherit;
+    color: var(--ink);
+    background: var(--key);
+    border: 1.5px solid var(--key-border);
+    border-radius: 10px;
+    padding: 8px 10px;
+  }
+
+  /* 사용 기록 (archive: 위에서 아래로) */
+  .arch { margin-top: 22px; padding-top: 16px; border-top: 1px solid var(--key-border); }
+  .arch-title { font-size: 14px; font-weight: 700; color: var(--ink-soft); margin-bottom: 6px; }
+  .rec-row {
+    display: flex;
+    align-items: center;
+    border: 1.5px solid transparent;
+    border-radius: 12px;
+  }
+  .rec-row.sel { border-color: var(--gold); background: var(--track); }
+  .rec {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 12px 6px 12px 10px;
+    margin: 0;
+    border: 0;
+    background: transparent;
+    color: var(--ink);
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .rec .d { font-size: 16px; }
+  .rec .h { font-size: 18px; font-weight: 800; }
+  .rec .h small { font-size: 12px; font-weight: 500; color: var(--ink-soft); margin-left: 3px; }
+  .plan {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border: 1px solid var(--orange);
+    border-radius: 99px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--orange);
+    vertical-align: 2px;
+  }
+  .x {
+    flex: none;
+    width: 44px;
+    height: 44px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--ink-soft);
+    font-size: 24px;
+    line-height: 1;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .x:active { color: var(--orange); background: var(--track); }
+
+  /* × 를 누르면 행 안에서 삭제 여부를 묻는다 (브라우저 확인 창 대신) */
+  .rec-row.confirm {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 12px 10px;
+    border-color: var(--orange);
+    background: var(--track);
+  }
+  .ask { width: 100%; font-size: 15px; line-height: 1.5; }
+  .ask b { font-size: 16px; }
+  .ask small { display: block; font-size: 13px; color: var(--ink-soft); }
+  .mini {
+    flex: 1;
+    height: 44px;
+    border-radius: 12px;
+    border: 1.5px solid transparent;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .mini.yes { background: var(--orange); color: #16324f; }
+  .mini.no { background: transparent; color: var(--ink); border-color: var(--key-border); }
+  .empty-note { color: var(--ink-soft); font-size: 14px; padding: 10px 0; }
+</style>
+</head>
+<body>
+<main class="app">
+
+  <!-- 첫 화면 -->
+  <section class="screen" id="home">
+    <header class="display">
+      <div class="text">
+        <div class="date" id="today"></div>
+        <h1>연차휴가 관리 시스템</h1>
+      </div>
+      <div class="dday" id="dday" aria-live="polite">
+        <span class="n" id="dday-n"></span>
+        <span class="c" id="dday-c"></span>
+      </div>
+    </header>
+
+    <nav class="pad" id="pad" aria-label="메뉴"></nav>
+  </section>
+
+  <!-- 하위 화면 -->
+  <section class="screen" id="detail" hidden>
+    <div class="topbar">
+      <button class="back" id="back" aria-label="첫 화면으로">←</button>
+      <h2 id="detail-title"></h2>
+    </div>
+    <div class="card" id="detail-body"></div>
+  </section>
+
+</main>
+
+<script>
+  // ==ENGINE-START==
+  /* ------------------------------------------------------------------
+   * 데이터 (모든 수치는 '시간' 단위)
+   * SNAPSHOT: 기준일(asOf) 현재 값. 앱에서 '저장'한 사용 기록은 이 값 위에 더해집니다.
+   *           2027.1.1.부터는 2026년 최종값을 바탕으로 아래 규칙대로 자동 계산합니다.
+   * records:  { annual: [{ id, date: "YYYY-MM-DD", hours }], advance: [...], ... }
+   * ------------------------------------------------------------------ */
+  const SNAPSHOT = {
+    year: 2026,
+    asOf: "2026-10-16",
+    annual:  { issued: 168, used: 28 },  // 연차
+    advance: { issued: 88,  used: 0  },  // 선사용
+    alt:     { issued: 0,   used: 0  },  // 대체휴가
+    bonus:   { issued: 8,   used: 7  },  // 가산휴가
+    saved:   { issued: 86,  used: 62 },  // 연차 적치
+    union:   { issued: 8,   used: 8  }   // 노조교육
+  };
+  const KEYS = ["annual", "advance", "alt", "bonus", "saved", "union"];
+
+  // 매년 1월 1일 규칙
+  const RULE = {
+    annual: 174,          // 연차: 새해 발생 시간
+    advancePerMonth: 8,   // 선사용: 새해 0에서 시작, 1개월 도과할 때마다 +8
+    alt: 0,               // 대체휴가: 새해 추가 시간 (잔여는 이월)
+    bonus: 8,             // 가산휴가: 전년분 소멸 후 새해분
+    union: 8,             // 노조교육: 새해분
+    savedCap: 120,        // 연차 적치: 전년 미사용 연차 합산 한도
+    keep: 120,            // 수치 메뉴 공식의 차감값: (연차 - 120)
+    divisor: 8            // 수치 메뉴 아래에 표기: 수치 ÷ 8
+  };
+
+  const remain = (r) => r.issued - r.used;
+
+  // 테두리에 칠할 비율 = 사용/발생. 잔여가 0(또는 발생이 0)이면 100%(전체 마킹)
+  function usedRatio(r) {
+    if (r.issued <= 0 || remain(r) <= 0) return 1;
+    return Math.min(1, Math.max(0, r.used / r.issued));
+  }
+
+  // 특정 연도에 저장된 사용 기록의 합계
+  function sumRecords(records, key, year) {
+    return ((records && records[key]) || [])
+      .filter((r) => Number(String(r.date).slice(0, 4)) === year)
+      .reduce((a, r) => a + r.hours, 0);
+  }
+
+  function computeState(now, records) {
+    const year = now.getFullYear();
+    let cur = {};
+    KEYS.forEach((k) => {
+      cur[k] = {
+        issued: SNAPSHOT[k].issued,
+        used: SNAPSHOT[k].used + sumRecords(records, k, SNAPSHOT.year)
+      };
+    });
+    for (let y = SNAPSHOT.year + 1; y <= year; y++) {
+      const prev = cur;
+      const unusedAnnual = Math.max(0, remain(prev.annual));
+      const months = (y === year) ? now.getMonth() : 11;  // 1월=0 → 도과한 개월 수
+      const use = (k) => sumRecords(records, k, y);
+      cur = {
+        annual:  { issued: RULE.annual, used: use("annual") },
+        advance: { issued: RULE.advancePerMonth * months, used: use("advance") },
+        alt:     { issued: prev.alt.issued + RULE.alt, used: prev.alt.used + use("alt") },
+        bonus:   { issued: RULE.bonus, used: use("bonus") },
+        saved:   { issued: prev.saved.issued + Math.min(RULE.savedCap, unusedAnnual),
+                   used: prev.saved.used + use("saved") },
+        union:   { issued: RULE.union, used: use("union") }
+      };
+    }
+    return cur;
+  }
+
+  // 수치 메뉴: (연차 - 120) + 가산휴가 + 노조교육  (모두 잔여 기준)
+  function mustValue(st) {
+    return (remain(st.annual) - RULE.keep) + remain(st.bonus) + remain(st.union);
+  }
+  function mustPer8(st) {
+    return mustValue(st) / RULE.divisor;
+  }
+
+  // 올해 12.31.까지 남은 날짜
+  function ddayInfo(now) {
+    const y = now.getFullYear();
+    const today = new Date(y, now.getMonth(), now.getDate());
+    const end = new Date(y, 11, 31);
+    const days = Math.round((end - today) / 86400000);
+    return { days, endText: `${y}.12.31.` };
+  }
+
+  // 사용일자 선택 범위: 기준일 이전(이미 사용분에 포함)과 올해 밖은 제외
+  const pad2 = (n) => String(n).padStart(2, "0");
+  function todayISO(now) {
+    return `${now.getFullYear()}-${pad2(now.getMonth() + 1)}-${pad2(now.getDate())}`;
+  }
+  function dateBounds(now) {
+    const y = now.getFullYear();
+    return { min: y === SNAPSHOT.year ? SNAPSHOT.asOf : `${y}-01-01`, max: `${y}-12-31` };
+  }
+  // ==ENGINE-END==
+
+  const MENUS = [
+    { id: "annual",   label: "연차",     type: "balance", key: "annual" },
+    { id: "advance",  label: "선사용",   type: "balance", key: "advance" },
+    { id: "alt",      label: "대체휴가", type: "balance", key: "alt" },
+    { id: "bonus",    label: "가산휴가", type: "balance", key: "bonus" },
+    { id: "saved",    label: "연차 적치", type: "balance", key: "saved" },
+    { id: "union",    label: "노조교육", type: "balance", key: "union" },
+    { id: "deadline", label: "사용기한", type: "deadline" },
+    { id: "must",     label: null,       type: "value" },   // 타이틀 없이 수치만
+    { id: "slot9",    label: null,       type: "empty" }
+  ];
+
+  const $ = (s) => document.querySelector(s);
+  const DAYS = ["일", "월", "화", "수", "목", "금", "토"];
+  const p2 = pad2;
+  const dot = (d) => `${d.getFullYear()}.${p2(d.getMonth() + 1)}.${p2(d.getDate())}.`;
+  const num = (n) => String(+n.toFixed(2));
+  const num3 = (n) => String(+n.toFixed(3));   // ÷8 값은 소수 셋째 자리까지 정확히 표기
+  const hr = (n) => `${num(n)}<small>시간</small>`;
+  // "2026-10-16" → "2026.10.16. (금)"
+  function fmtISO(iso) {
+    const [y, m, d] = iso.split("-").map(Number);
+    return `${y}.${p2(m)}.${p2(d)}. (${DAYS[new Date(y, m - 1, d).getDay()]})`;
+  }
+
+  /* ---------------- 사용 기록 저장 (이 기기의 브라우저에 저장) ---------------- */
+  const STORE_KEY = "leave-app-records-v1";
+  const newId = () => Math.random().toString(36).slice(2, 8) + Date.now().toString(36);
+
+  function loadRecords() {
+    const out = {};
+    KEYS.forEach((k) => { out[k] = []; });
+    try {
+      const raw = JSON.parse(localStorage.getItem(STORE_KEY) || "{}");
+      KEYS.forEach((k) => {
+        (Array.isArray(raw[k]) ? raw[k] : []).forEach((r) => {
+          if (r && /^\d{4}-\d{2}-\d{2}$/.test(r.date) && Number.isFinite(r.hours) && r.hours > 0) {
+            out[k].push({
+              id: /^[a-z0-9]+$/i.test(String(r.id)) ? String(r.id) : newId(),
+              date: r.date,
+              hours: r.hours
+            });
+          }
+        });
+      });
+    } catch (e) {}
+    return out;
+  }
+  function saveRecords() {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(records)); return true; }
+    catch (e) { return false; }
+  }
+  let records = loadRecords();
+
+  /* ---------------- 상세 화면 상태 ---------------- */
+  let pending = 0;        // 저장 전 차감 시간
+  let selectedId = null;  // 삭제하려고 선택한 기록
+  let confirmId = null;   // 삭제 여부를 묻는 중인 기록
+  let pickedDate = null;  // 사용일자 (없으면 오늘)
+  let notice = "";
+  let openId = null;
+
+  function resetDetailState() {
+    pending = 0; selectedId = null; confirmId = null; pickedDate = null; notice = "";
+  }
+  function effDate(now) {
+    const b = dateBounds(now);
+    return (pickedDate && pickedDate >= b.min && pickedDate <= b.max) ? pickedDate : todayISO(now);
+  }
+
+  // 원 테두리: 바탕 링 + 12시 방향부터 시계 방향으로 칠해지는 골드 호
+  function ringSvg(frac) {
+    const pct = Math.round(frac * 1000) / 10;
+    const arc = frac > 0
+      ? `<circle class="ring-arc" cx="50" cy="50" r="48.5" pathLength="100"${pct >= 100 ? "" : ` stroke-dasharray="${pct} 100"`} transform="rotate(-90 50 50)"/>`
+      : "";
+    return `<svg class="ring" viewBox="0 0 100 100" aria-hidden="true"><circle class="ring-track" cx="50" cy="50" r="48.5"/>${arc}</svg>`;
+  }
+
+  function renderHome(now) {
+    $("#today").textContent = `${dot(now)} (${DAYS[now.getDay()]})`;
+    const dd = ddayInfo(now);
+    $("#dday-n").textContent = dd.days === 0 ? "D-DAY" : `D-${dd.days}`;
+    $("#dday-c").textContent = dd.endText.slice(5) + "까지";
+
+    const st = computeState(now, records);
+    const padEl = $("#pad");
+    padEl.innerHTML = "";
+    MENUS.forEach((m) => {
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "key" + (m.type === "empty" ? " empty" : "");
+      if (m.type === "empty") {
+        btn.disabled = true;
+        btn.setAttribute("aria-label", "빈 메뉴");
+      } else if (m.type === "value") {
+        const v = mustValue(st);
+        const v2 = mustPer8(st);
+        btn.innerHTML = ringSvg(0) + `<span class="v">${num(v)}</span><span class="v2">${num3(v2)}</span>`;
+        btn.setAttribute("aria-label", `의무 사용 ${num(v)}시간, 8로 나눈 값 ${num3(v2)}`);
+        btn.addEventListener("click", () => openMenu(m));
+      } else if (m.type === "balance") {
+        const r = st[m.key];
+        const ratio = usedRatio(r);
+        btn.innerHTML = ringSvg(ratio) +
+          `<span class="label">${m.label}</span><span class="val">${num(remain(r))}</span>`;
+        btn.setAttribute("aria-label", `${m.label} 잔여 ${num(remain(r))}시간, 사용 ${Math.round(ratio * 100)}%`);
+        btn.addEventListener("click", () => openMenu(m));
+      } else {
+        // 사용기한: 메뉴명 대신 날짜 표기 (위: 연도, 아래: 월일)
+        btn.innerHTML = ringSvg(0) +
+          `<span class="date-y">${now.getFullYear()}</span><span class="date-md">12.31.</span>`;
+        btn.setAttribute("aria-label", `${m.label} ${dd.endText}`);
+        btn.addEventListener("click", () => openMenu(m));
+      }
+      padEl.appendChild(btn);
+    });
+  }
+
+  // 연차 등 6개 메뉴의 상세 화면: 발생/사용/잔여, 비율, 차감·저장·삭제, 사용 기록
+  function renderBalance(m, now, asOf) {
+    const base = computeState(now, records)[m.key];
+    const live = { issued: base.issued, used: base.used + pending };   // 저장 전 차감 포함
+    const left = remain(live);
+    const pct = usedRatio(live) * 100;
+    const b = dateBounds(now);
+    const date = effDate(now);
+    const list = (records[m.key] || []).slice()
+      .sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));   // 위: 오래된 순 → 아래: 최근
+    const hasSel = list.some((r) => r.id === selectedId);
+    const canDeduct = remain(base) - pending >= 1;
+    const today = todayISO(now);
+    const rows = list.length
+      ? list.map((r) => r.id === confirmId
+        ? `<div class="rec-row confirm">` +
+          `<div class="ask"><b>${fmtISO(r.date)} · ${num(r.hours)}시간</b>` +
+          `<small>삭제하면 사용·잔여 시간이 원래대로 돌아와요</small></div>` +
+          `<button type="button" class="mini yes" data-yes="${r.id}">삭제</button>` +
+          `<button type="button" class="mini no" data-no="${r.id}">취소</button></div>`
+        : `<div class="rec-row${r.id === selectedId ? " sel" : ""}">` +
+          `<button type="button" class="rec" data-id="${r.id}" aria-pressed="${r.id === selectedId}">` +
+          `<span class="d">${fmtISO(r.date)}${r.date > today ? `<span class="plan">예정</span>` : ""}</span>` +
+          `<span class="h">${hr(r.hours)}</span></button>` +
+          `<button type="button" class="x" data-x="${r.id}" aria-label="${fmtISO(r.date)} 기록 삭제">×</button>` +
+          `</div>`).join("")
+      : `<div class="empty-note">저장된 기록이 없습니다</div>`;
+
+    $("#detail-body").innerHTML = `
+      <div class="asof">기준 ${asOf}</div>
+      <dl class="rows">
+        <div><dt>발생</dt><dd>${hr(live.issued)}</dd></div>
+        <div><dt>사용</dt><dd>${hr(live.used)}</dd></div>
+        <div class="sum"><dt>잔여</dt><dd>${hr(left)}</dd></div>
+      </dl>
+      <div class="bar" aria-hidden="true"><i style="width:${pct}%"></i></div>
+      <div class="bar-cap">사용 ${Math.round(pct)}%</div>
+
+      <div class="actions">
+        <button type="button" class="btn deduct" data-act="deduct"${canDeduct ? "" : " disabled"}>사용</button>
+        <button type="button" class="btn save" data-act="save"${pending > 0 ? "" : " disabled"}>저장</button>
+        <button type="button" class="btn del" data-act="del"${(pending > 0 || hasSel) ? "" : " disabled"}>삭제</button>
+      </div>
+      ${pending > 0 ? `<div class="pending">저장 전 사용 ${num(pending)}시간 — '저장'을 눌러야 기록돼요</div>` : ""}
+      ${notice ? `<div class="notice">${notice}</div>` : ""}
+      <div class="datebar">
+        <label for="use-date">사용일자</label>
+        <input type="date" id="use-date" value="${date}" min="${b.min}" max="${b.max}">
+      </div>
+
+      <div class="arch">
+        <div class="arch-title">사용 기록</div>
+        ${rows}
+      </div>`;
+  }
+
+  function renderDetail(m, now) {
+    const st = computeState(now, records);
+    const asOf = (now.getFullYear() === SNAPSHOT.year)
+      ? SNAPSHOT.asOf.replace(/-/g, ".") + "."
+      : dot(now);
+    const body = $("#detail-body");
+    const title = $("#detail-title");
+    title.className = m.type === "value" ? "gold" : "";
+
+    if (m.type === "balance") {
+      title.textContent = m.label;
+      renderBalance(m, now, asOf);
+    } else if (m.type === "deadline") {
+      const dd = ddayInfo(now);
+      title.textContent = m.label;
+      body.innerHTML = `
+        <div class="asof">연차 사용기한</div>
+        <div class="big-date">${dd.endText}</div>
+        <div class="sub">${dd.days === 0 ? "오늘이 마지막 날입니다" : `${dd.days}일 남음`}</div>`;
+    } else if (m.type === "value") {
+      const a = remain(st.annual) - RULE.keep;
+      const b = remain(st.bonus);
+      const c = remain(st.union);
+      title.textContent = "의무 사용";
+      body.innerHTML = `
+        <div class="asof">기준 ${asOf}</div>
+        <dl class="rows">
+          <div><dt>연차 잔여 ${num(remain(st.annual))} − ${RULE.keep}</dt><dd>${hr(a)}</dd></div>
+          <div><dt>가산휴가 잔여</dt><dd>${hr(b)}</dd></div>
+          <div><dt>노조교육 잔여</dt><dd>${hr(c)}</dd></div>
+          <div class="sum gold"><dt>합계</dt><dd>${hr(a + b + c)}</dd></div>
+          <div class="sum2"><dd>${num3(mustPer8(st))}</dd></div>
+        </dl>`;
+    }
+  }
+
+  // 차감 / 저장 / 삭제
+  function act(kind, m, now) {
+    notice = "";
+    confirmId = null;
+    const base = computeState(now, records)[m.key];
+    if (kind === "deduct") {
+      if (remain(base) - pending >= 1) pending += 1;
+    } else if (kind === "save") {
+      if (pending <= 0) return;
+      const list = records[m.key] || (records[m.key] = []);
+      list.push({ id: newId(), date: effDate(now), hours: pending });
+      if (!saveRecords()) notice = "이 브라우저에서는 저장할 수 없어 새로고침하면 사라져요 (비공개 모드인지 확인해 주세요)";
+      pending = 0; pickedDate = null; selectedId = null;
+    } else if (kind === "del") {
+      if (selectedId && (records[m.key] || []).some((r) => r.id === selectedId)) {
+        confirmId = selectedId;   // 선택한 기록 행에서 삭제 여부를 묻는다
+      } else if (pending > 0) {
+        pending = 0;   // 저장 전 차감 취소
+      }
+    }
+    renderDetail(m, now);
+  }
+
+  // 저장된 기록 삭제 → 사용·잔여·비율이 원래대로 복구됨 (× 버튼, 삭제 버튼 공통)
+  function removeRecord(m, id) {
+    const list = records[m.key] || [];
+    const i = list.findIndex((r) => r.id === id);
+    if (i < 0) return false;
+    list.splice(i, 1);
+    if (id === selectedId) selectedId = null;
+    if (id === confirmId) confirmId = null;
+    notice = saveRecords() ? "" : "이 브라우저에서는 저장할 수 없어 새로고침하면 되돌아가요";
+    return true;
+  }
+
+  $("#detail-body").addEventListener("click", (e) => {
+    const m = MENUS.find((x) => x.id === openId);
+    if (!m || m.type !== "balance") return;
+    const now = new Date();
+    const yes = e.target.closest("[data-yes]");
+    const no = e.target.closest("[data-no]");
+    const x = e.target.closest("[data-x]");
+    const btn = e.target.closest("[data-act]");
+    const rec = e.target.closest("[data-id]");
+    if (yes) {                      // 삭제 확정 → 기록이 지워지고 사용·잔여·비율이 복구됨
+      notice = "";
+      removeRecord(m, yes.dataset.yes);
+      confirmId = null;
+      renderDetail(m, now);
+    } else if (no) {                // 삭제 취소
+      confirmId = null;
+      renderDetail(m, now);
+    } else if (x) {                 // × → 이 행에서 삭제 여부를 묻는다
+      notice = "";
+      confirmId = confirmId === x.dataset.x ? null : x.dataset.x;
+      renderDetail(m, now);
+    } else if (btn) act(btn.dataset.act, m, now);
+    else if (rec) {
+      selectedId = selectedId === rec.dataset.id ? null : rec.dataset.id;
+      confirmId = null;
+      notice = "";
+      renderDetail(m, now);
+    }
+  });
+  $("#detail-body").addEventListener("change", (e) => {
+    if (!e.target.matches("input[type=date]")) return;
+    const m = MENUS.find((x) => x.id === openId);
+    if (!m) return;
+    const now = new Date();
+    const b = dateBounds(now);
+    const v = e.target.value;
+    if (!v) { pickedDate = null; notice = ""; }
+    else if (v >= b.min && v <= b.max) { pickedDate = v; notice = ""; }
+    else {
+      pickedDate = null;
+      notice = `사용일자는 ${fmtISO(b.min)} ~ ${fmtISO(b.max)} 사이로 선택해 주세요`;
+    }
+    renderDetail(m, now);
+  });
+
+  function openMenu(m) {
+    openId = m.id;
+    resetDetailState();
+    renderDetail(m, new Date());
+    $("#home").hidden = true;
+    $("#detail").hidden = false;
+    window.scrollTo(0, 0);
+    // 폰의 기본 뒤로가기(제스처/버튼)도 첫 화면으로 돌아오도록 기록을 남김
+    try { history.pushState({ detail: m.id }, ""); } catch (e) {}
+  }
+  function showHome() {
+    openId = null;
+    resetDetailState();
+    $("#detail").hidden = true;
+    $("#home").hidden = false;
+    renderHome(new Date());
+  }
+  // 직전 화면(첫 화면)으로 복귀
+  function goHome() {
+    if (!openId) return;
+    if (history.state && history.state.detail) history.back();   // popstate → showHome
+    else showHome();
+  }
+
+  window.addEventListener("popstate", () => { if (openId) showHome(); });
+  try { history.replaceState({ home: true }, ""); } catch (e) {}
+
+  $("#back").addEventListener("click", goHome);
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") goHome(); });
+
+  // 왼쪽 가장자리에서 오른쪽으로 스와이프 → 직전 화면
+  const SWIPE = { edge: 48, minDx: 70, maxSlope: 0.6, maxMs: 900 };
+  let sw = null;
+  document.addEventListener("touchstart", (e) => {
+    if (!openId || e.touches.length !== 1) { sw = null; return; }
+    const t = e.touches[0];
+    sw = t.clientX <= SWIPE.edge ? { x: t.clientX, y: t.clientY, at: Date.now() } : null;
+  }, { passive: true });
+  document.addEventListener("touchend", (e) => {
+    if (!sw || !openId) { sw = null; return; }
+    const t = e.changedTouches[0];
+    const dx = t.clientX - sw.x;
+    const dy = t.clientY - sw.y;
+    const quick = Date.now() - sw.at <= SWIPE.maxMs;
+    sw = null;
+    if (dx >= SWIPE.minDx && Math.abs(dy) <= dx * SWIPE.maxSlope && quick) goHome();
+  }, { passive: true });
+  document.addEventListener("touchcancel", () => { sw = null; }, { passive: true });
+
+  // 앱을 켜 둔 채 날짜가 바뀌어도 다시 열 때 최신 값으로 갱신
+  document.addEventListener("visibilitychange", () => {
+    if (document.hidden) return;
+    const now = new Date();
+    renderHome(now);
+    if (openId) renderDetail(MENUS.find((m) => m.id === openId), now);
+  });
+
+  renderHome(new Date());
+
+  // 설치형 앱: 서비스워커 등록 (https 또는 localhost에서만 동작, 파일로 직접 열 때는 건너뜀)
+  if ("serviceWorker" in navigator && /^https?:$/.test(location.protocol)) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>
